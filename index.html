@@ -1,0 +1,45 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DexScanner Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>DexScanner Top Trader Tracker</h1>
+        <div id="trader-data"></div>
+    </div>
+    <script>
+        async function fetchTraderData() {
+            const response = await fetch('/api/traders');
+            const data = await response.json();
+            const traderDataDiv = document.getElementById('trader-data');
+            traderDataDiv.innerHTML = '';
+
+            data.forEach(trader => {
+                const traderDiv = document.createElement('div');
+                traderDiv.className = 'trader';
+
+                const traderName = document.createElement('h2');
+                traderName.innerText = trader.trader;
+                traderDiv.appendChild(traderName);
+
+                const recommendations = document.createElement('ul');
+                trader.recommendations.forEach(rec => {
+                    const li = document.createElement('li');
+                    li.innerText = `${rec.coin}: ${rec.action}`;
+                    recommendations.appendChild(li);
+                });
+
+                traderDiv.appendChild(recommendations);
+                traderDataDiv.appendChild(traderDiv);
+            });
+        }
+
+        fetchTraderData();
+    </script>
+</body>
+</html>
