@@ -1,45 +1,152 @@
-<!-- public/index.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DexScanner Tracker</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div class="container">
-        <h1>DexScanner Top Trader Tracker</h1>
-        <div id="trader-data"></div>
-    </div>
-    <script>
-        async function fetchTraderData() {
-            const response = await fetch('/api/traders');
-            const data = await response.json();
-            const traderDataDiv = document.getElementById('trader-data');
-            traderDataDiv.innerHTML = '';
+// index.js
+const express = require('express');
+const axios = require('axios');
+const path = require('path');
 
-            data.forEach(trader => {
-                const traderDiv = document.createElement('div');
-                traderDiv.className = 'trader';
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-                const traderName = document.createElement('h2');
-                traderName.innerText = trader.trader;
-                traderDiv.appendChild(traderName);
+// Middleware to serve static files
+app.use(express.static(path.join(__dirname, 'public')));
 
-                const recommendations = document.createElement('ul');
-                trader.recommendations.forEach(rec => {
-                    const li = document.createElement('li');
-                    li.innerText = `${rec.coin}: ${rec.action}`;
-                    recommendations.appendChild(li);
-                });
+// Constant roster of wallets being watched
+const watchedWallets = [
+    'walletAddress1', // Replace with actual wallet addresses
+    'walletAddress2',
+    'walletAddress3'
+];
 
-                traderDiv.appendChild(recommendations);
-                traderDataDiv.appendChild(traderDiv);
-            });
+// Fetch transactions for a trader
+async function fetchTraderTransactions(walletAddress) {
+    try {
+        const response = await axios.get(`https://api.dexscanner.com/wallet/${walletAddress}`); // Replace with the actual endpoint
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching trader transactions:', error);
+        return [];
+    }
+}
+
+// Analyze transactions and provide recommendations
+function analyzeTransactions(transactions) {
+    const recommendations = [];
+    transactions.forEach(tx => {
+        if (tx.type === 'buy') {
+            recommendations.push({ coin: tx.coin, action: 'Buy' });
+        } else if (tx.type === 'sell') {
+            recommendations.push({ coin: tx.coin, action: 'Sell' });
         }
+    });
+    return recommendations;
+}
 
-        fetchTraderData();
-    </script>
-</body>
-</html>
+// API endpoint to get trader data
+app.get('/api/traders', async (req, res) => {
+    const traderData = [];
+
+    for (const wallet of watchedWallets) {
+        const transactions = await fetchTraderTransactions(wallet);
+        const recommendations = analyzeTransactions(transactions);
+        traderData.push({ wallet, recommendations });
+    }
+
+    res.json(traderData);
+});
+
+// Serve the main HTML page
+app.get('/', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>DexScanner Tracker</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f4f4f4;
+                margin: 0;
+                padding: 20px;
+            }
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }
+            h1 {
+                text-align: center;
+                color: #333;
+            }
+            .trader {
+                margin: 20px 0;
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                background: #fafafa;
+            }
+            .trader h2 {
+                margin: 0 0 10px 0;
+                color: #555;
+            }
+            .transaction {
+                padding: 5px 0;
+                font-size: 18px;
+            }
+            .buy {
+                color: green;
+                font-weight: bold;
+                font-size: 20px;
+            }
+            .sell {
+                color: red;
+                font-weight: bold;
+                font-size: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>DexScanner Top Trader Tracker</h1>
+            <div id="trader-data"></div>
+        </div>
+        <script>
+            async function fetchTraderData() {
+                const response = await fetch('/api/traders');
+                const data = await response.json();
+                const traderDataDiv = document.getElementById('trader-data');
+                traderDataDiv.innerHTML = '';
+
+                data.forEach(trader => {
+                    const traderDiv = document.createElement('div');
+                    traderDiv.className = 'trader';
+
+                    const walletAddress = document.createElement('h2');
+                    walletAddress.innerText = trader.wallet;
+                    traderDiv.appendChild(walletAddress);
+
+                    trader.recommendations.forEach(rec => {
+                        const txDiv = document.createElement('div');
+                        txDiv.className = 'transaction';
+                        txDiv.innerHTML = \`<span class="\${rec.action.toLowerCase()}">\${rec.coin}: \${rec.action}</span>\`;
+                        traderDiv.appendChild(txDiv);
+                    });
+
+                    traderDataDiv.appendChild(traderDiv);
+                });
+            }
+
+            fetchTraderData();
+        </script>
+    </body>
+    </html>
+    `);
+});
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(\`Server is running on http://localhost:\${PORT}\`);
+});
