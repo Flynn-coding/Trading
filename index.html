@@ -160,3 +160,127 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(\`Server is running on http://localhost:\${PORT}\`);
 });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DexScanner Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .trader {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .trader h2 {
+            margin: 0 0 10px 0;
+            color: #555;
+        }
+        .transaction {
+            padding: 5px 0;
+            font-size: 18px;
+        }
+        .buy {
+            color: green;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .sell {
+            color: red;
+            font-weight: bold;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DexScanner Top Trader Tracker</h1>
+        <div id="trader-data"></div>
+    </div>
+    <script>
+        const VOLATILITY_THRESHOLD = 40000;
+
+        async function fetchCoins() {
+            try {
+                const response = await fetch('https://api.dexscanner.com/coins'); // Replace with the actual endpoint
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching coins:', error);
+                return [];
+            }
+        }
+
+        async function fetchTraderTransactions(walletAddress) {
+            try {
+                const response = await fetch(`https://api.dexscanner.com/wallet/${walletAddress}`); // Replace with the actual endpoint
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching trader transactions:', error);
+                return [];
+            }
+        }
+
+        function analyzeTransactions(transactions) {
+            const recommendations = [];
+            transactions.forEach(tx => {
+                if (tx.type === 'buy') {
+                    recommendations.push({ coin: tx.coin, action: 'Buy' });
+                } else if (tx.type === 'sell') {
+                    recommendations.push({ coin: tx.coin, action: 'Sell' });
+                }
+            });
+            return recommendations;
+        }
+
+        async function fetchTraderData() {
+            const coins = await fetchCoins();
+            const filteredCoins = coins.filter(coin => coin.volatility >= VOLATILITY_THRESHOLD);
+            const traderDataDiv = document.getElementById('trader-data');
+            traderDataDiv.innerHTML = '';
+
+            for (const coin of filteredCoins) {
+                const transactions = await fetchTraderTransactions(coin.wallet); // Replace with correct wallet address if necessary
+                const recommendations = analyzeTransactions(transactions);
+
+                const traderDiv = document.createElement('div');
+                traderDiv.className = 'trader';
+                const coinName = document.createElement('h2');
+                coinName.innerText = coin.name;
+                traderDiv.appendChild(coinName);
+
+                recommendations.forEach(rec => {
+                    const txDiv = document.createElement('div');
+                    txDiv.className = 'transaction';
+                    txDiv.innerHTML = `<span class="${rec.action.toLowerCase()}">${rec.coin}: ${rec.action}</span>`;
+                    traderDiv.appendChild(txDiv);
+                });
+
+                traderDataDiv.appendChild(traderDiv);
+            }
+        }
+
+        // Fetch trader data when the page loads
+        window.onload = fetchTraderData;
+    </script>
+</body>
+</html>
