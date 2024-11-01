@@ -9,14 +9,21 @@ const PORT = process.env.PORT || 3000;
 // Middleware to serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Constant roster of wallets being watched
-const watchedWallets = [
-    'walletAddress1', // Replace with actual wallet addresses
-    'walletAddress2',
-    'walletAddress3'
-];
+// Constant volatility threshold
+const VOLATILITY_THRESHOLD = 40000;
 
-// Fetch transactions for a trader
+// Function to fetch coins with their volatility
+async function fetchCoins() {
+    try {
+        const response = await axios.get('https://api.dexscanner.com/coins'); // Replace with the actual endpoint
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching coins:', error);
+        return [];
+    }
+}
+
+// Fetch transactions for a trader's wallet
 async function fetchTraderTransactions(walletAddress) {
     try {
         const response = await axios.get(`https://api.dexscanner.com/wallet/${walletAddress}`); // Replace with the actual endpoint
@@ -42,12 +49,15 @@ function analyzeTransactions(transactions) {
 
 // API endpoint to get trader data
 app.get('/api/traders', async (req, res) => {
+    const coins = await fetchCoins();
+    const filteredCoins = coins.filter(coin => coin.volatility >= VOLATILITY_THRESHOLD);
+
     const traderData = [];
 
-    for (const wallet of watchedWallets) {
-        const transactions = await fetchTraderTransactions(wallet);
+    for (const coin of filteredCoins) {
+        const transactions = await fetchTraderTransactions(coin.wallet); // Replace with correct wallet address if necessary
         const recommendations = analyzeTransactions(transactions);
-        traderData.push({ wallet, recommendations });
+        traderData.push({ coin: coin.name, wallet: coin.wallet, recommendations });
     }
 
     res.json(traderData);
@@ -124,9 +134,9 @@ app.get('/', (req, res) => {
                     const traderDiv = document.createElement('div');
                     traderDiv.className = 'trader';
 
-                    const walletAddress = document.createElement('h2');
-                    walletAddress.innerText = trader.wallet;
-                    traderDiv.appendChild(walletAddress);
+                    const coinName = document.createElement('h2');
+                    coinName.innerText = trader.coin;
+                    traderDiv.appendChild(coinName);
 
                     trader.recommendations.forEach(rec => {
                         const txDiv = document.createElement('div');
